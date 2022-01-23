@@ -29,10 +29,17 @@ func main() {
 func run() {
 	fmt.Printf("Running %v \n", os.Args[2:])
 
+	/*
+				/proc/self/exe - special file containing an in-memory image of the current executable
+		        execute another program that executes a user-requested program i.e create container using simple scaffolding
+	*/
+
 	cmd := exec.Command("/proc/self/exe", append([]string{"child"}, os.Args[2:]...)...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
+	// add namespaces to our PID
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags:   syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
 		Unshareflags: syscall.CLONE_NEWNS,
@@ -52,6 +59,8 @@ func child() {
 	cmd.Stderr = os.Stderr
 
 	must(syscall.Sethostname([]byte("container")))
+
+	// change the root of the container i.e the root of PID will not be the same as the host machine
 	must(syscall.Chroot("/home/jaiesh/ubuntufs"))
 	must(os.Chdir("/"))
 	must(syscall.Mount("proc", "proc", "proc", 0, ""))
@@ -64,6 +73,7 @@ func child() {
 }
 
 func cg() {
+	// cgroups helps to limit the memory used by the container such that it does not exhaust all resources of the host it is running on
 	cgroups := "/sys/fs/cgroup/"
 	pids := filepath.Join(cgroups, "pids")
 	os.Mkdir(filepath.Join(pids, "jaiesh"), 0755)
